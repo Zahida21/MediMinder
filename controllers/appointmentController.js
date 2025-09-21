@@ -1,7 +1,7 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 // const agoraService = require('../services/agoraService');
-// const twilioVideoService = require('../services/twilioVideoService');
+const twilioVideoService = require('../services/twilioVideoService');
 
 exports.bookAppointment = async (req, res) => {
   try {
@@ -38,8 +38,24 @@ exports.createVideoSession = async (req, res) => {
   const { appointmentId } = req.body;
   const appt = await Appointment.findById(appointmentId);
   if (!appt) return res.status(404).json({ message: 'Appointment not found' });
-  // Placeholder: generate video session ID (use Agora/Twilio in production)
-  appt.videoSessionId = `session_${Date.now()}`;
+
+  // Use appointmentId as the room name for simplicity
+  const roomName = `appointment_${appointmentId}`;
+  const patient = await User.findById(appt.patientId);
+  const doctor = await User.findById(appt.doctorId);
+
+  // Generate tokens for both patient and doctor
+  const patientToken = twilioVideoService.generateAccessToken(patient._id.toString(), roomName);
+  const doctorToken = twilioVideoService.generateAccessToken(doctor._id.toString(), roomName);
+
+  appt.videoSessionId = roomName;
   await appt.save();
-  res.json({ message: 'Video session created', videoSessionId: appt.videoSessionId });
+
+  res.json({
+    message: 'Video session created',
+    videoSessionId: roomName,
+    patientToken,
+    doctorToken,
+    roomName
+  });
 };
