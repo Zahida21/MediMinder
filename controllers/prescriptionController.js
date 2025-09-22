@@ -1,11 +1,17 @@
+
 const Prescription = require('../models/Prescription');
 const multer = require('multer');
-const path = require('path');
+const { GridFsStorage } = require('multer-gridfs-storage');
+const { getGFS } = require('../services/gridfs');
 
-// For demo: store files locally in /uploads (replace with GridFS/S3 in prod)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+// GridFS storage engine
+const storage = new GridFsStorage({
+  url: process.env.MONGODB_URI,
+  file: (req, file) => {
+    return {
+      filename: Date.now() + '-' + file.originalname
+    };
+  }
 });
 const upload = multer({ storage });
 
@@ -18,11 +24,29 @@ exports.uploadPrescription = async (req, res) => {
     const prescription = await Prescription.create({
       doctorId: req.user._id,
       patientId,
-      fileUrl: `/uploads/${req.file.filename}`
+      fileUrl: req.file.id // Store GridFS file id
     });
     res.status(201).json({ message: 'Prescription uploaded', prescription });
   } catch (err) {
     res.status(500).json({ message: 'Upload error', error: err.message });
+  }
+};
+
+// Stream prescription file from GridFS
+exports.getPrescriptionFile = async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    const gfs = getGFS();
+    gfs.files.findOne({ _id: require('mongoose').Types.ObjectId(fileId) }, (err, file) => {
+      if (!file || file.length === 0) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      const readstream = gfs.createReadStream({ _id: file._id });
+      res.set('Content-Type', file.contentType || 'application/octet-stream');
+      readstream.pipe(res);
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'File fetch error', error: err.message });
   }
 };
 

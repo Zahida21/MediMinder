@@ -38,11 +38,15 @@ app.use(rateLimit({
 }));
 
 // MongoDB connection
+
+const { initGridFS } = require('../services/gridfs');
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
-}).then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB error:', err));
+}).then((conn) => {
+  console.log('MongoDB connected');
+  initGridFS(conn.connection);
+}).catch(err => console.error('MongoDB error:', err));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
