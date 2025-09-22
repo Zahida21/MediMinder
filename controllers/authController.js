@@ -1,3 +1,15 @@
+// Update user language
+exports.updateLanguage = async (req, res) => {
+  try {
+    const { language } = req.body;
+    if (!language) return res.status(400).json({ message: 'Language is required' });
+    req.user.language = language;
+    await req.user.save();
+    res.json({ message: 'Language updated', language });
+  } catch (err) {
+    res.status(500).json({ message: 'Language update error', error: err.message });
+  }
+};
 const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
